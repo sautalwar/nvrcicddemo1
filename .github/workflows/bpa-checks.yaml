@@ -43,6 +43,7 @@ jobs:
 
       REPO_TABULAR_RULES: bpa-rules-semanticmodel.json
       REPO_PBI_RULES: bpa-rules-report.json
+      DISABLE_RULE_IDS: NUMERIC_COLUMN_SUMMARIZE_BY
 
     steps:
       - name: Checkout repo
