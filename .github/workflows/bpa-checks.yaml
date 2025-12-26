@@ -9,7 +9,7 @@ on:
   # Also run when someone opens/updates a PR into main
   pull_request:
     branches:
-      - main
+      - "*"
 
   # Manual run button, with demo-friendly inputs
   workflow_dispatch:
