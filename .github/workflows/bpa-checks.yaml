@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
+          
           if [ ! -f "${TABULAR_DIR}/TabularEditor.exe" ]; then
             echo "Downloading Tabular Editor..."
             curl -L "${TABULAR_ZIP_URL}" -o "${TABULAR_DIR}/TabularEditor.zip"
@@ -108,6 +108,8 @@ jobs:
             echo "Repo Tabular rules not found; using defaultRules.json"
             TABULAR_RULES="${TABULAR_DIR}/defaultRules.json"
           fi
+          echo "Using Tabular rules file: ${RULES}"
+          ls -la "${RULES}" || true
 
           PBI_RULES="${REPO_PBI_RULES}"
           if [ ! -f "${PBI_RULES}" ]; then
@@ -127,46 +129,82 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Temporarily disable selected rule IDs (demo)
+            - name: Temporarily disable selected rule IDs (demo)
         if: ${{ env.DISABLE_RULE_IDS != '' }}
         shell: bash
+        env:
+          DISABLE_RULE_IDS: ${{ env.DISABLE_RULE_IDS }}
+          TABULAR_RULES_PATH: ${{ steps.rules.outputs.tabularRules }}
+          PBI_RULES_PATH: ${{ steps.rules.outputs.pbiRules }}
         run: |
           set -euo pipefail
+          echo "DISABLE_RULE_IDS=$DISABLE_RULE_IDS"
+          echo "TABULAR_RULES_PATH=$TABULAR_RULES_PATH"
+          echo "PBI_RULES_PATH=$PBI_RULES_PATH"
+
           python - <<'PY'
-          import json, os
+          import json, os, re
 
-          disable_raw = os.environ.get("DISABLE_RULE_IDS","")
-          ids = [x.strip() for x in disable_raw.split(",") if x.strip()]
-          if not ids:
-              raise SystemExit(0)
+          ids = [x.strip() for x in os.environ["DISABLE_RULE_IDS"].split(",") if x.strip()]
+          tab_path = os.environ["TABULAR_RULES_PATH"]
+          pbi_path = os.environ["PBI_RULES_PATH"]
 
-          def patch(path: str, ids):
-              with open(path, "r", encoding="utf-8") as f:
-                  data = json.load(f)
+          def disable_in_tabular_rules(path, ids):
+            with open(path, "r", encoding="utf-8") as f:
+              data = json.load(f)
 
-              # PBI Inspector format
-              if isinstance(data, dict) and "rules" in data and isinstance(data["rules"], list):
-                  for r in data["rules"]:
-                      if r.get("id") in ids:
-                          r["disabled"] = True
+            changed = 0
 
-              # Tabular Editor formats
-              if isinstance(data, list):
-                  for r in data:
-                      if r.get("ID") in ids:
-                          r["Disabled"] = True
-              if isinstance(data, dict) and "BestPracticeRules" in data and isinstance(data["BestPracticeRules"], list):
-                  for r in data["BestPracticeRules"]:
-                      if r.get("ID") in ids or r.get("Id") in ids or r.get("id") in ids:
-                          r["Disabled"] = True
+            # Case 1: Microsoft BPARules.json style
+            if isinstance(data, dict) and "BestPracticeRules" in data and isinstance(data["BestPracticeRules"], list):
+              for r in data["BestPracticeRules"]:
+                rid = r.get("ID") or r.get("Id") or r.get("id")
+                if rid in ids:
+                  r["Disabled"] = True
+                  changed += 1
 
-              with open(path, "w", encoding="utf-8") as f:
-                  json.dump(data, f, indent=2)
+            # Case 2: List-of-rules style
+            if isinstance(data, list):
+              for r in data:
+                rid = r.get("ID") or r.get("Id") or r.get("id")
+                if rid in ids:
+                  r["Disabled"] = True
+                  changed += 1
 
-              print(f"Disabled {ids} in {path}")
+            with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
 
-          patch(os.environ["TABULAR_RULES_PATH"], ids)
-          patch(os.environ["PBI_RULES_PATH"], ids)
+            return changed
+
+          def disable_in_pbi_rules(path, ids):
+            with open(path, "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+            changed = 0
+            # PBI Inspector Base-rules.json style: {"rules":[{"id":"...","disabled":false}, ...]}
+            if isinstance(data, dict) and "rules" in data and isinstance(data["rules"], list):
+              for r in data["rules"]:
+                if r.get("id") in ids:
+                  r["disabled"] = True
+                  changed += 1
+
+            with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2)
+
+            return changed
+
+          tab_changed = disable_in_tabular_rules(tab_path, ids)
+          pbi_changed = disable_in_pbi_rules(pbi_path, ids)
+
+          print(f"Tabular rules updated: {tab_changed} rule(s) disabled in {tab_path}")
+          print(f"PBI rules updated:    {pbi_changed} rule(s) disabled in {pbi_path}")
+
+          # Proof: print any matching rule entries from tabular rules
+          with open(tab_path, "r", encoding="utf-8") as f:
+            txt = f.read()
+          for rid in ids:
+            if rid in txt:
+              print(f"Proof: found '{rid}' in tabular rules file after patch")
           PY
         env:
           DISABLE_RULE_IDS: ${{ env.DISABLE_RULE_IDS }}
