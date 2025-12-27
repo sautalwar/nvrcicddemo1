@@ -1,17 +1,14 @@
 name: BPA Checks (Semantic Model + Report)
 
 on:
-  # Run on ANY push (main + any branch) — covers "new branch created" + "any file added/modified"
   push:
     branches:
       - "**"
 
-  # Also run when someone opens/updates a PR into main
   pull_request:
     branches:
       - "*"
 
-  # Manual run button, with demo-friendly inputs
   workflow_dispatch:
     inputs:
       disable_rule_ids:
@@ -27,7 +24,7 @@ on:
 jobs:
   bpa:
     # If you clicked Run workflow and checked skip_bpa=true, do nothing
-    if: ${{ env.DISABLE_RULE_IDS != '' }}
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_bpa) }}
     runs-on: windows-latest
 
     env:
@@ -43,13 +40,14 @@ jobs:
 
       REPO_TABULAR_RULES: bpa-rules-semanticmodel.json
       REPO_PBI_RULES: bpa-rules-report.json
+
+      # Demo: disable rule(s) by ID (comma-separated)
       DISABLE_RULE_IDS: NUMERIC_COLUMN_SUMMARIZE_BY
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Cache the downloaded tools so your workflow is fast after the first run
       - name: Cache BPA tools
         uses: actions/cache@v4
         with:
@@ -66,7 +64,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # TabularEditor.exe will exist after unzip
           if [ ! -f "${TABULAR_DIR}/TabularEditor.exe" ]; then
             echo "Downloading Tabular Editor..."
             curl -L "${TABULAR_ZIP_URL}" -o "${TABULAR_DIR}/TabularEditor.zip"
@@ -76,7 +73,6 @@ jobs:
             echo "Tabular Editor already present (cache hit)."
           fi
 
-          # Download default rules if missing
           if [ ! -f "${TABULAR_DIR}/defaultRules.json" ]; then
             echo "Downloading Tabular Editor default rules..."
             curl -L "${TABULAR_DEFAULT_RULES_URL}" -o "${TABULAR_DIR}/defaultRules.json"
@@ -87,7 +83,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # PBIRInspectorCLI.exe will exist after unzip (under win-x64/CLI)
           if [ ! -f "${PBI_DIR}/win-x64/CLI/PBIRInspectorCLI.exe" ]; then
             echo "Downloading PBI Inspector..."
             curl -L "${PBI_ZIP_URL}" -o "${PBI_DIR}/PBIInspector.zip"
@@ -97,7 +92,6 @@ jobs:
             echo "PBI Inspector already present (cache hit)."
           fi
 
-          # Download default rules if missing
           if [ ! -f "${PBI_DIR}/defaultRules.json" ]; then
             echo "Downloading PBI Inspector default rules..."
             curl -L "${PBI_DEFAULT_RULES_URL}" -o "${PBI_DIR}/defaultRules.json"
@@ -134,49 +128,50 @@ jobs:
           python-version: "3.11"
 
       - name: Temporarily disable selected rule IDs (demo)
-  if: ${{ env.DISABLE_RULE_IDS != '' }}
-  shell: bash
-  run: |
-    set -euo pipefail
-    python - <<'PY'
-    import json, os
+        if: ${{ env.DISABLE_RULE_IDS != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
 
-    disable_raw = os.environ.get("DISABLE_RULE_IDS","")
-    ids = [x.strip() for x in disable_raw.split(",") if x.strip()]
-    if not ids:
-      raise SystemExit(0)
+          disable_raw = os.environ.get("DISABLE_RULE_IDS","")
+          ids = [x.strip() for x in disable_raw.split(",") if x.strip()]
+          if not ids:
+              raise SystemExit(0)
 
-    def patch(path: str, ids):
-      with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+          def patch(path: str, ids):
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
 
-      if isinstance(data, dict) and "rules" in data and isinstance(data["rules"], list):
-        for r in data["rules"]:
-          if r.get("id") in ids:
-            r["disabled"] = True
+              # PBI Inspector format
+              if isinstance(data, dict) and "rules" in data and isinstance(data["rules"], list):
+                  for r in data["rules"]:
+                      if r.get("id") in ids:
+                          r["disabled"] = True
 
-      if isinstance(data, list):
-        for r in data:
-          if r.get("ID") in ids:
-            r["Disabled"] = True
-      if isinstance(data, dict) and "BestPracticeRules" in data and isinstance(data["BestPracticeRules"], list):
-        for r in data["BestPracticeRules"]:
-          if r.get("ID") in ids or r.get("Id") in ids or r.get("id") in ids:
-            r["Disabled"] = True
+              # Tabular Editor formats
+              if isinstance(data, list):
+                  for r in data:
+                      if r.get("ID") in ids:
+                          r["Disabled"] = True
+              if isinstance(data, dict) and "BestPracticeRules" in data and isinstance(data["BestPracticeRules"], list):
+                  for r in data["BestPracticeRules"]:
+                      if r.get("ID") in ids or r.get("Id") in ids or r.get("id") in ids:
+                          r["Disabled"] = True
 
-      with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+              with open(path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, indent=2)
 
-      print(f"Disabled {ids} in {path}")
+              print(f"Disabled {ids} in {path}")
 
-    patch(os.environ["TABULAR_RULES_PATH"], ids)
-    patch(os.environ["PBI_RULES_PATH"], ids)
-    PY
-  env:
-    DISABLE_RULE_IDS: ${{ env.DISABLE_RULE_IDS }}
-    TABULAR_RULES_PATH: ${{ steps.rules.outputs.tabularRules }}
-    PBI_RULES_PATH: ${{ steps.rules.outputs.pbiRules }}
-
+          patch(os.environ["TABULAR_RULES_PATH"], ids)
+          patch(os.environ["PBI_RULES_PATH"], ids)
+          PY
+        env:
+          DISABLE_RULE_IDS: ${{ env.DISABLE_RULE_IDS }}
+          TABULAR_RULES_PATH: ${{ steps.rules.outputs.tabularRules }}
+          PBI_RULES_PATH: ${{ steps.rules.outputs.pbiRules }}
 
       - name: Run Tabular Editor BPA (Semantic Models)
         shell: bash
@@ -186,7 +181,6 @@ jobs:
           TABULAR_EXE="${TABULAR_DIR}/TabularEditor.exe"
           RULES="${{ steps.rules.outputs.tabularRules }}"
 
-          # Find semantic model item files
           mapfile -t FILES < <(find . -type f \( -name "*.pbidataset" -o -name "*.pbism" \) | sort)
 
           if [ "${#FILES[@]}" -eq 0 ]; then
@@ -197,7 +191,6 @@ jobs:
           for f in "${FILES[@]}"; do
             dir="$(dirname "$f")"
 
-            # Prefer "definition" folder, else "model.bim"
             if [ -d "${dir}/definition" ]; then
               ITEM_PATH="${dir}/definition"
             elif [ -f "${dir}/model.bim" ]; then
