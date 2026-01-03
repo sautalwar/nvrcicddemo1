@@ -227,7 +227,7 @@ table Sales
 		isHidden
 		isAvailableInMdx: false
 		lineageTag: 03a43676-2ce4-4678-a4a7-0ee8f4e00b17
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: Unit Cost
 
 		changedProperty = IsHidden
@@ -280,7 +280,7 @@ table Sales
 		isHidden
 		formatString: 0
 		lineageTag: 3a3256d8-5094-4a3a-9109-8ce85813f62c
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: Quantity
 
 		annotation SummarizationSetBy = Automatic
