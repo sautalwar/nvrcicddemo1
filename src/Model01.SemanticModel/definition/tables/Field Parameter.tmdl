@@ -31,7 +31,7 @@ table 'Field Parameter'
 		isHidden
 		formatString: 0
 		lineageTag: 2102f8c8-0503-42f5-ac07-b1a606810a4a
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: [Value3]
 
 		annotation SummarizationSetBy = Automatic

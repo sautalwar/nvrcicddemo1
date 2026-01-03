@@ -237,7 +237,7 @@ createOrReplace
 			isHidden
 			isAvailableInMdx: false
 			lineageTag: 03a43676-2ce4-4678-a4a7-0ee8f4e00b17
-			summarizeBy: sum
+			summarizeBy: none
 			sourceColumn: Unit Cost
 
 			changedProperty = IsHidden
@@ -290,7 +290,7 @@ createOrReplace
 			isHidden
 			formatString: 0
 			lineageTag: 3a3256d8-5094-4a3a-9109-8ce85813f62c
-			summarizeBy: sum
+			summarizeBy: none
 			sourceColumn: Quantity
 
 			annotation SummarizationSetBy = Automatic
@@ -299,7 +299,7 @@ createOrReplace
 			dataType: decimal
 			formatString: "€"#,0.###############;("€"#,0.###############);"€"#,0.###############
 			lineageTag: a190bb72-9254-4740-b536-2c016eef5c07
-			summarizeBy: sum
+			summarizeBy: none
 			sourceColumn: Net Price
 
 			annotation SummarizationSetBy = Automatic

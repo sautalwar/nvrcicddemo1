@@ -114,7 +114,7 @@ table Sales
 		isHidden
 		isAvailableInMdx: false
 		lineageTag: 03a43676-2ce4-4678-a4a7-0ee8f4e00b17
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: Unit Cost
 
 		changedProperty = IsHidden
@@ -166,7 +166,7 @@ table Sales
 		dataType: int64
 		formatString: 0
 		lineageTag: ee6c821a-1a5f-4f3b-bc18-3a7587aff19b
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: Quantity
 
 		annotation SummarizationSetBy = Automatic
@@ -175,7 +175,7 @@ table Sales
 		dataType: decimal
 		formatString: "€"#,0.###############;("€"#,0.###############);"€"#,0.###############
 		lineageTag: 0326d41e-e712-427b-965d-7ed3087016a5
-		summarizeBy: sum
+		summarizeBy: none
 		sourceColumn: Net Price
 
 		annotation SummarizationSetBy = Automatic
