@@ -5,6 +5,18 @@
 # META {
 # META   "kernel_info": {
 # META     "name": "synapse_pyspark"
+# META   },
+# META   "dependencies": {
+# META     "lakehouse": {
+# META       "default_lakehouse": "f1da9f0b-0c17-407e-a5f6-853ae0065c26",
+# META       "default_lakehouse_name": "customer_data_lakehouse",
+# META       "default_lakehouse_workspace_id": "d44744bc-d9d8-4cd1-a044-bab24399b67d",
+# META       "known_lakehouses": [
+# META         {
+# META           "id": "f1da9f0b-0c17-407e-a5f6-853ae0065c26"
+# META         }
+# META       ]
+# META     }
 # META   }
 # META }
 
@@ -38,12 +50,25 @@ print("📂 Loading data from Lakehouse...")
 data = spark.read.format("csv") \
     .option("header", "true") \
     .option("inferSchema", "true") \
-    .load("Files/silver/customer_features/sample_customer_data.csv") \
+    .load("Files/sample_customer_data.csv") \
     .toPandas()
 
 print(f"✅ Loaded {len(data)} customer records from Lakehouse")
 print(f"\n📊 Dataset shape: {data.shape}")
 print(f"\n🎯 Churn distribution:\n{data['churn'].value_counts()}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+df = spark.read.format("csv").option("header","true").load("Files/sample_customer_data.csv")
+# df now is a Spark DataFrame containing CSV data from "Files/sample_customer_data.csv".
+display(df)
 
 # METADATA ********************
 
