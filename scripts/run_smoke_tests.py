@@ -17,23 +17,23 @@ def run_smoke_tests(workspace_id: str, environment: str) -> bool:
     print(f"Workspace ID: {workspace_id}")
     print(f"Environment: {environment}")
     print()
-    
+
     tests = [
         ("Critical Notebook", test_critical_notebook),
         ("API Health", test_api_health),
         ("Data Availability", test_data_availability),
     ]
-    
+
     all_passed = True
     for test_name, test_func in tests:
         print(f"\n💨 {test_name}...", end=" ")
-        
+
         if test_func(workspace_id, environment):
             print("✅")
         else:
             print("❌")
             all_passed = False
-    
+
     return all_passed
 
 
@@ -62,10 +62,15 @@ def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description="Run Fabric smoke tests")
     parser.add_argument("--workspace-id", required=True, help="Fabric workspace ID")
-    parser.add_argument("--environment", required=True, choices=["dev", "test", "prod"], help="Environment")
-    
+    parser.add_argument(
+        "--environment",
+        required=True,
+        choices=["dev", "test", "prod"],
+        help="Environment",
+    )
+
     args = parser.parse_args()
-    
+
     if run_smoke_tests(args.workspace_id, args.environment):
         print("\n✅ ALL SMOKE TESTS PASSED")
         sys.exit(0)
