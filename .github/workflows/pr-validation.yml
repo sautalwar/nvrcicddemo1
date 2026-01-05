@@ -1,0 +1,92 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'notebooks/**'
+      - 'pipelines/**'
+      - 'scripts/**'
+      - 'config/**'
+
+jobs:
+  validate-code:
+    name: Code Quality & Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install black flake8 nbqa pytest
+      
+      - name: Run Black (Python formatting)
+        run: |
+          black --check scripts/
+          echo "✅ Python code formatting validated"
+      
+      - name: Run Flake8 (Linting)
+        run: |
+          flake8 scripts/ --max-line-length=120 --exclude=__pycache__
+          echo "✅ Python linting passed"
+      
+      - name: Validate Notebooks
+        run: |
+          python scripts/validate_notebooks.py
+          echo "✅ Notebooks validated successfully"
+      
+      - name: Validate Pipelines
+        run: |
+          python scripts/validate_pipelines.py
+          echo "✅ Pipeline definitions validated"
+      
+      - name: Run Unit Tests
+        run: |
+          pytest scripts/tests/ -v --tb=short
+          echo "✅ All tests passed"
+      
+      - name: Validate Configuration Files
+        run: |
+          python -c "
+          import yaml
+          import sys
+          
+          configs = ['config/dev.yml', 'config/test.yml', 'config/prod.yml']
+          for config_file in configs:
+              try:
+                  with open(config_file) as f:
+                      yaml.safe_load(f)
+                  print(f'✅ {config_file} is valid')
+              except Exception as e:
+                  print(f'❌ {config_file} validation failed: {e}')
+                  sys.exit(1)
+          "
+      
+      - name: Check for Secrets in Code
+        run: |
+          if grep -r -i -E '(password|api[_-]?key|secret|token)\s*=\s*["\'][^"\']+["\']' scripts/ notebooks/ --exclude-dir=.git; then
+            echo "❌ Potential secrets found in code!"
+            exit 1
+          else
+            echo "✅ No hardcoded secrets detected"
+          fi
+      
+      - name: PR Validation Summary
+        if: always()
+        run: |
+          echo "## 🎯 NVR Data Science PR Validation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.head_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All validation checks completed. Review details above." >> $GITHUB_STEP_SUMMARY

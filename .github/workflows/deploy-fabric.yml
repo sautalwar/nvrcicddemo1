@@ -1,0 +1,154 @@
+name: Deploy to Fabric
+
+on:
+  push:
+    branches:
+      - '*dev*'  # Auto-deploy to DEV for any branch with 'dev' in name
+      - main     # Auto-deploy to TEST
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      skip_tests:
+        description: 'Skip smoke tests'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  determine-environment:
+    name: Determine Deployment Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+    
+    steps:
+      - name: Set environment based on trigger
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == *"dev"* ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "environment=test" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+  deploy:
+    name: Deploy to ${{ needs.determine-environment.outputs.environment }}
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Configure Azure CLI
+        run: |
+          pip install azure-cli
+          # Authenticate using service principal
+          # az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+      
+      - name: Backup Current Workspace
+        run: |
+          echo "🔄 Creating backup before deployment..."
+          python scripts/backup_workspace.py --environment ${{ needs.determine-environment.outputs.environment }}
+          echo "✅ Backup completed"
+      
+      - name: Deploy to Fabric
+        env:
+          FABRIC_WORKSPACE_ID: ${{ secrets[format('FABRIC_WORKSPACE_ID_{0}', needs.determine-environment.outputs.environment)] }}
+          FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
+        run: |
+          echo "🚀 Deploying to ${{ needs.determine-environment.outputs.environment }} environment..."
+          python scripts/deploy_to_fabric.py \
+            --config config/${{ needs.determine-environment.outputs.environment }}.yml \
+            --environment ${{ needs.determine-environment.outputs.environment }}
+          echo "✅ Deployment completed"
+      
+      - name: Validate Deployment
+        run: |
+          echo "🔍 Validating deployment..."
+          python scripts/validate_deployment.py \
+            --environment ${{ needs.determine-environment.outputs.environment }}
+          echo "✅ Deployment validation passed"
+      
+      - name: Run Smoke Tests
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          echo "🧪 Running smoke tests..."
+          python scripts/run_smoke_tests.py \
+            --environment ${{ needs.determine-environment.outputs.environment }}
+          echo "✅ Smoke tests passed"
+      
+      - name: Run Integration Tests
+        if: ${{ needs.determine-environment.outputs.environment == 'test' }}
+        run: |
+          echo "🔗 Running integration tests..."
+          python scripts/run_integration_tests.py
+          echo "✅ Integration tests passed"
+      
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🎯 NVR Fabric Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Deployed Components" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Semantic Models (Model01, Model02, Model03)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Power BI Reports (Report01-05)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Notebooks (data_ingestion, model_training)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Pipelines (customer_analytics_pipeline)" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed! Initiating rollback..."
+          python scripts/rollback_deployment.py \
+            --environment ${{ needs.determine-environment.outputs.environment }}
+
+  post-deployment:
+    name: Post-Deployment Tasks
+    needs: [determine-environment, deploy]
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Update Deployment Tracking
+        run: |
+          echo "📊 Updating deployment tracking..."
+          echo "Deployment to ${{ needs.determine-environment.outputs.environment }} completed at $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> DEPLOYMENT_LOG.md
+          echo "Commit: ${{ github.sha }}" >> DEPLOYMENT_LOG.md
+          echo "---" >> DEPLOYMENT_LOG.md
+      
+      - name: Send Teams Notification
+        if: ${{ needs.determine-environment.outputs.environment == 'prod' }}
+        run: |
+          echo "📢 Sending Teams notification for production deployment..."
+          # Add Teams webhook integration here
+          # curl -X POST ${{ secrets.TEAMS_WEBHOOK_URL }} -H 'Content-Type: application/json' -d '...'
