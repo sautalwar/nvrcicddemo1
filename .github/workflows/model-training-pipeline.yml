@@ -116,7 +116,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: development
-      url: 'https://app.fabric.microsoft.com/groups/${{ secrets.FABRIC_DEV_WORKSPACE_ID }}'
     
     outputs:
       deployment_id: ${{ steps.deploy.outputs.deployment_id }}
@@ -216,7 +215,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: test
-      url: 'https://app.fabric.microsoft.com/groups/${{ secrets.FABRIC_TEST_WORKSPACE_ID }}'
     
     outputs:
       deployment_id: ${{ steps.deploy.outputs.deployment_id }}
@@ -333,7 +331,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: 'https://app.fabric.microsoft.com/groups/${{ secrets.FABRIC_PROD_WORKSPACE_ID }}'
     
     steps:
       - name: 📥 Checkout code
