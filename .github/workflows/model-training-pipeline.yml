@@ -180,8 +180,7 @@ jobs:
           echo "🧪 Running smoke tests in DEV..."
           python scripts/run_smoke_tests.py \
             --workspace-id "${{ secrets.FABRIC_DEV_WORKSPACE_ID }}" \
-            --environment dev \
-            --notebook model_training
+            --environment dev
           echo "✅ Smoke tests passed"
       
       - name: 📊 DEV Deployment Summary
@@ -419,8 +418,7 @@ jobs:
           echo "🧪 Running smoke tests in PRODUCTION..."
           python scripts/run_smoke_tests.py \
             --workspace-id "${{ secrets.FABRIC_PROD_WORKSPACE_ID }}" \
-            --environment prod \
-            --notebook model_training
+            --environment prod
           echo "✅ PROD smoke tests passed"
       
       - name: 📝 Log deployment to audit trail
