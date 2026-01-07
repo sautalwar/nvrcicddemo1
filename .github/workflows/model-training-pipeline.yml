@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'model_training1.Notebook/**'
+      - 'notebooks/model_training.Notebook/**'
       - 'notebooks/model_training.ipynb'
       - 'pipelines/customer_analytics_pipeline.json'
       - 'check_data_quality.py'
@@ -14,7 +14,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'model_training1.Notebook/**'
+      - 'notebooks/model_training.Notebook/**'
       - 'notebooks/model_training.ipynb'
       - 'pipelines/customer_analytics_pipeline.json'
   
@@ -40,7 +40,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.10'
-  NOTEBOOK_PATH: 'model_training1.Notebook'
+  NOTEBOOK_PATH: 'notebooks/model_training.Notebook'
 
 jobs:
   # ========================================
