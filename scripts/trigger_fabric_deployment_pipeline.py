@@ -124,21 +124,28 @@ class FabricDeploymentPipeline:
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             
+            print(f"✅ Deployment request accepted (Status: {response.status_code})")
+            
             # Check if response has content
-            if not response.content:
-                print(f"⚠️ API returned empty response (status {response.status_code})")
-                print(f"✅ Deployment request accepted (no operation ID returned)")
+            if not response.content or response.status_code == 202:
+                # 202 Accepted means deployment is queued but may not have operation details yet
+                print(f"✅ Deployment initiated to {target_name}")
                 return True
             
-            deployment = response.json()
-            operation_id = deployment.get('operationId')
-            
-            if operation_id:
-                print(f"✅ Deployment initiated (Operation ID: {operation_id})")
-                if wait:
-                    return self._wait_for_deployment(operation_id, target_name)
-            else:
-                print(f"✅ Deployment initiated (no operation tracking available)")
+            # Try to parse JSON response
+            try:
+                deployment = response.json()
+                operation_id = deployment.get('operationId') if deployment else None
+                
+                if operation_id:
+                    print(f"✅ Deployment initiated (Operation ID: {operation_id})")
+                    if wait:
+                        return self._wait_for_deployment(operation_id, target_name)
+                else:
+                    print(f"✅ Deployment initiated (no operation tracking available)")
+            except ValueError:
+                # Response is not JSON, but request was successful
+                print(f"✅ Deployment initiated to {target_name} (no JSON response)")
             
             return True
             
