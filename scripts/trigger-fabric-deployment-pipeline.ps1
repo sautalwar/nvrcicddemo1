@@ -50,7 +50,6 @@ if ($isGitHubActions) {
     Import-Module MicrosoftPowerBIMgmt
     Connect-PowerBIServiceAccount
     
-    $tokenObj = Invoke-PowerBIRestMethod -Url "https://api.powerbi.com/v1.0/myorg/" -Method Get
     # For local execution, we'll use the connection established
 }
 

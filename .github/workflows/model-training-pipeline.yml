@@ -153,8 +153,8 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
     runs-on: ubuntu-latest
-    environment:
-      name: development
+    # environment:
+    #   name: development
     
     outputs:
       deployment_id: ${{ steps.deploy.outputs.deployment_id }}
@@ -269,8 +269,8 @@ jobs:
     name: 🧪 Deploy to TEST
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test'
     runs-on: ubuntu-latest
-    environment:
-      name: test
+    # environment:
+    #   name: test
     
     outputs:
       deployment_id: ${{ steps.deploy.outputs.deployment_id }}
@@ -383,8 +383,8 @@ jobs:
     name: 🎯 Deploy to PRODUCTION
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
     runs-on: ubuntu-latest
-    environment:
-      name: production
+    # environment:
+    #   name: production
     
     steps:
       - name: 📥 Checkout code
@@ -544,7 +544,7 @@ jobs:
     if: failure() && github.event.inputs.environment == 'prod'
     needs: [deploy-prod]
     runs-on: ubuntu-latest
-    environment: production
+    # environment: production
     
     steps:
       - name: 📥 Checkout code
