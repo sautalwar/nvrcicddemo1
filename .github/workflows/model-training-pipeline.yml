@@ -448,20 +448,6 @@ jobs:
             --note "PROD Release: ${{ github.event.inputs.deployment_reason }} | Ticket: ${{ github.event.inputs.change_ticket }} (Commit: ${{ github.sha }})"
           
           echo "✅ Promoted to PRODUCTION via Fabric deployment pipeline"
-          python scripts/deploy_to_fabric.py \
-            --workspace-id "${{ secrets.FABRIC_PROD_WORKSPACE_ID }}" \
-            --environment prod \
-            --artifact-type notebooks \
-            --artifacts-path ${{ env.NOTEBOOK_PATH }}
-          
-          # Deploy pipeline  
-          python scripts/deploy_to_fabric.py \
-            --workspace-id "${{ secrets.FABRIC_PROD_WORKSPACE_ID }}" \
-            --environment prod \
-            --artifact-type pipelines \
-            --artifacts-path pipelines/customer_analytics_pipeline.json
-          
-          echo "✅ All artifacts deployed to PRODUCTION"
       
       - name: ✅ Validate PROD deployment
         run: |
