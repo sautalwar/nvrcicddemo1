@@ -68,10 +68,28 @@ jobs:
           # az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
       
       - name: Backup Current Workspace
+        id: backup
         run: |
           echo "🔄 Creating backup before deployment..."
-          python scripts/backup_workspace.py --environment ${{ needs.determine-environment.outputs.environment }}
-          echo "✅ Backup completed"
+          BACKUP_ID="backup-$(date +%Y%m%d-%H%M%S)"
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
+          python scripts/backup_workspace.py \
+            --workspace-id "$WORKSPACE_ID" \
+            --backup-id "$BACKUP_ID" \
+            --output-path "backups/"
+          
+          echo "backup_id=$BACKUP_ID" >> $GITHUB_OUTPUT
+          echo "✅ Backup completed: $BACKUP_ID"
       
       - name: Deploy to Fabric
         env:
