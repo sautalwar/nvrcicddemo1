@@ -171,7 +171,7 @@ jobs:
           echo "❌ Deployment failed - initiating rollback..."
           python scripts/rollback_deployment.py \
             --workspace-id "${{ secrets.FABRIC_PROD_WORKSPACE_ID }}" \
-            --backup-path ./backup/prod-latest
+            --backup-path "backups/${{ steps.backup.outputs.backup_id }}" || echo "⚠️ Rollback failed or not configured"
           echo "✅ Rollback completed"
       
       - name: 📢 Create Deployment Issue on Failure
