@@ -61,11 +61,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       
-      - name: Configure Azure CLI
+      - name: 🔐 Authenticate to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: 🎫 Get Fabric Access Token
         run: |
-          pip install azure-cli
-          # Authenticate using service principal
-          # az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          TOKEN=$(az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "FABRIC_TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "✅ Fabric token acquired"
       
       - name: Backup Current Workspace
         id: backup
