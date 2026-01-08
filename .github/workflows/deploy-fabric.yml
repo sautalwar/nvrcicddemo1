@@ -122,23 +122,53 @@ jobs:
       - name: Validate Deployment
         run: |
           echo "🔍 Validating deployment..."
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
           python scripts/validate_deployment.py \
+            --workspace-id "$WORKSPACE_ID" \
             --environment ${{ needs.determine-environment.outputs.environment }}
+          
           echo "✅ Deployment validation passed"
       
       - name: Run Smoke Tests
         if: ${{ !inputs.skip_tests }}
         run: |
           echo "🧪 Running smoke tests..."
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
           python scripts/run_smoke_tests.py \
+            --workspace-id "$WORKSPACE_ID" \
             --environment ${{ needs.determine-environment.outputs.environment }}
+          
           echo "✅ Smoke tests passed"
       
       - name: Run Integration Tests
         if: ${{ needs.determine-environment.outputs.environment == 'test' }}
         run: |
           echo "🔗 Running integration tests..."
-          python scripts/run_integration_tests.py
+          
+          python scripts/run_integration_tests.py \
+            --workspace-id "${{ secrets.FABRIC_TEST_WORKSPACE_ID }}" \
+            --environment test
+          
           echo "✅ Integration tests passed"
       
       - name: Deployment Summary
