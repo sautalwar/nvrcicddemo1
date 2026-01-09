@@ -61,49 +61,114 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       
-      - name: Configure Azure CLI
+      - name: 🔐 Authenticate to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: 🎫 Get Fabric Access Token
         run: |
-          pip install azure-cli
-          # Authenticate using service principal
-          # az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          TOKEN=$(az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "FABRIC_TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "✅ Fabric token acquired"
       
       - name: Backup Current Workspace
+        id: backup
         run: |
           echo "🔄 Creating backup before deployment..."
-          python scripts/backup_workspace.py --environment ${{ needs.determine-environment.outputs.environment }}
-          echo "✅ Backup completed"
+          BACKUP_ID="backup-$(date +%Y%m%d-%H%M%S)"
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
+          python scripts/backup_workspace.py \
+            --workspace-id "$WORKSPACE_ID" \
+            --backup-id "$BACKUP_ID" \
+            --output-path "backups/"
+          
+          echo "backup_id=$BACKUP_ID" >> $GITHUB_OUTPUT
+          echo "✅ Backup completed: $BACKUP_ID"
       
       - name: Deploy to Fabric
-        env:
-          FABRIC_WORKSPACE_ID: ${{ secrets[format('FABRIC_WORKSPACE_ID_{0}', needs.determine-environment.outputs.environment)] }}
-          FABRIC_TOKEN: ${{ secrets.FABRIC_TOKEN }}
         run: |
           echo "🚀 Deploying to ${{ needs.determine-environment.outputs.environment }} environment..."
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
           python scripts/deploy_to_fabric.py \
-            --config config/${{ needs.determine-environment.outputs.environment }}.yml \
-            --environment ${{ needs.determine-environment.outputs.environment }}
+            --workspace-id "$WORKSPACE_ID" \
+            --environment ${{ needs.determine-environment.outputs.environment }} \
+            --artifact-type all \
+            --artifacts-path .
+          
           echo "✅ Deployment completed"
       
       - name: Validate Deployment
         run: |
           echo "🔍 Validating deployment..."
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
           python scripts/validate_deployment.py \
+            --workspace-id "$WORKSPACE_ID" \
             --environment ${{ needs.determine-environment.outputs.environment }}
+          
           echo "✅ Deployment validation passed"
       
       - name: Run Smoke Tests
         if: ${{ !inputs.skip_tests }}
         run: |
           echo "🧪 Running smoke tests..."
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
           python scripts/run_smoke_tests.py \
+            --workspace-id "$WORKSPACE_ID" \
             --environment ${{ needs.determine-environment.outputs.environment }}
+          
           echo "✅ Smoke tests passed"
       
       - name: Run Integration Tests
         if: ${{ needs.determine-environment.outputs.environment == 'test' }}
         run: |
           echo "🔗 Running integration tests..."
-          python scripts/run_integration_tests.py
+          
+          python scripts/run_integration_tests.py \
+            --workspace-id "${{ secrets.FABRIC_TEST_WORKSPACE_ID }}" \
+            --environment test
+          
           echo "✅ Integration tests passed"
       
       - name: Deployment Summary
@@ -126,8 +191,20 @@ jobs:
         if: failure()
         run: |
           echo "❌ Deployment failed! Initiating rollback..."
+          
+          # Determine workspace ID based on environment
+          ENV="${{ needs.determine-environment.outputs.environment }}"
+          if [ "$ENV" == "dev" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_DEV_WORKSPACE_ID }}"
+          elif [ "$ENV" == "test" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_TEST_WORKSPACE_ID }}"
+          elif [ "$ENV" == "prod" ]; then
+            WORKSPACE_ID="${{ secrets.FABRIC_PROD_WORKSPACE_ID }}"
+          fi
+          
           python scripts/rollback_deployment.py \
-            --environment ${{ needs.determine-environment.outputs.environment }}
+            --workspace-id "$WORKSPACE_ID" \
+            --backup-path "backups/${{ steps.backup.outputs.backup_id }}" || echo "⚠️ Rollback failed or not configured"
 
   post-deployment:
     name: Post-Deployment Tasks

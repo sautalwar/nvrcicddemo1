@@ -19,9 +19,7 @@ jobs:
   deploy:
     name: Deploy to Test Workspace
     runs-on: ubuntu-latest
-    environment: 
-      name: test
-      url: 'https://app.fabric.microsoft.com/groups/${{ secrets.FABRIC_TEST_WORKSPACE_ID }}'
+    environment: test
     
     steps:
       - name: 📥 Checkout code

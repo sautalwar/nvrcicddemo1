@@ -16,7 +16,7 @@ on:
       - 'v*.*.*'  # Production release tags (e.g., v1.2.3)
 
 env:
-  FABRIC_WORKSPACE_NAME: 'NVR-Production'
+  FABRIC_WORKSPACE_NAME: 'NVR-Prod1'
   ENVIRONMENT: 'prod'
 
 jobs:
@@ -58,9 +58,7 @@ jobs:
     name: Deploy to Production
     needs: pre-deployment-checks
     runs-on: ubuntu-latest
-    environment: 
-      name: production
-      url: 'https://app.fabric.microsoft.com/groups/${{ secrets.FABRIC_PROD_WORKSPACE_ID }}'
+    environment: production
     
     steps:
       - name: 📥 Checkout code
@@ -81,9 +79,7 @@ jobs:
       - name: 🔐 Authenticate to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
       
       - name: 🎫 Get Fabric Access Token
         id: get_token
@@ -94,12 +90,18 @@ jobs:
           echo "✅ Fabric token acquired"
       
       - name: 📸 Backup Production Workspace
+        id: backup
         run: |
           echo "📸 Creating backup of current Production state..."
+          BACKUP_ID="backup-prod-$(date +%Y%m%d-%H%M%S)"
+          
           python scripts/backup_workspace.py \
             --workspace-id "${{ secrets.FABRIC_PROD_WORKSPACE_ID }}" \
-            --backup-path ./backup/prod-$(date +%Y%m%d-%H%M%S)
-          echo "✅ Backup completed"
+            --backup-id "$BACKUP_ID" \
+            --output-path "backups/"
+          
+          echo "backup_id=$BACKUP_ID" >> $GITHUB_OUTPUT
+          echo "✅ Backup completed: $BACKUP_ID"
       
       - name: 🚀 Deploy to Production
         run: |
@@ -167,7 +169,7 @@ jobs:
           echo "❌ Deployment failed - initiating rollback..."
           python scripts/rollback_deployment.py \
             --workspace-id "${{ secrets.FABRIC_PROD_WORKSPACE_ID }}" \
-            --backup-path ./backup/prod-latest
+            --backup-path "backups/${{ steps.backup.outputs.backup_id }}" || echo "⚠️ Rollback failed or not configured"
           echo "✅ Rollback completed"
       
       - name: 📢 Create Deployment Issue on Failure
