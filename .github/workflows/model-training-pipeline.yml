@@ -98,7 +98,7 @@ jobs:
           
           # Run schema detection (will exit 1 if breaking changes found)
           if python scripts/detect_schema_changes.py \
-            --notebook model_training.Notebook/notebook-content.py \
+            --notebook notebooks/model_training.Notebook/notebook-content.py \
             --fail-on-breaking; then
             echo "✅ No breaking schema changes detected"
             echo "schema_status=✅ Safe" >> $GITHUB_OUTPUT
